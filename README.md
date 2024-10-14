@@ -8,7 +8,7 @@ Test logic:
 
 1. Toggle the flag with the given `flagKey` in LaunchDarkly (via [Flags PATCH API call](https://apidocs.launchdarkly.com/tag/Feature-flags#operation/patchFeatureFlag))
 2. Get the flag's `lastModified` timestamp value from the API call response
-3. Get a current timestamp when the LDClient's `on('update:myFlagKey')` handler fires
+3. Get a current timestamp when the LDClient's [`on('update:myFlagKey')` handler](https://launchdarkly.github.io/js-core/packages/sdk/server-node/docs/interfaces/LDClient.html#on) fires
 4. Compare the the two timestamps
 
 # Setup
@@ -25,8 +25,10 @@ LD_API_TOKEN=<your API token>
 LD_PROJECT=<your LD project key>
 LD_ENVIRONMENT=<your LD environment key>
 LD_FLAG_KEY=<your LD flag key>
-LD_CONTEXT=<your LD context object>
+LD_CONTEXT=<your LD context object, must be valid JSON string>
 ```
+
+Example `LD_Context` value: `'{ "kind": "user", "key": "fdntest" }'`
 
 # Run
 
