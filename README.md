@@ -8,7 +8,7 @@ Test logic:
 
 1. Toggle the flag with the given `flagKey` in LaunchDarkly (via [Flags PATCH API call](https://apidocs.launchdarkly.com/tag/Feature-flags#operation/patchFeatureFlag))
 2. Get the flag's `lastModified` timestamp value from the API call response
-3. Get a current timestamp when the LDClient's [`on('update:myFlagKey')` handler](https://launchdarkly.github.io/js-core/packages/sdk/server-node/docs/interfaces/LDClient.html#on) fires
+3. Get a current timestamp when the LDClient's [`on('update:flagKey')` handler](https://launchdarkly.github.io/js-core/packages/sdk/server-node/docs/interfaces/LDClient.html#on) fires
 4. Compare the the two timestamps
 
 # Setup
