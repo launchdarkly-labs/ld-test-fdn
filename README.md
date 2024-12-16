@@ -24,7 +24,7 @@ LD_SDK_KEY=<your SDK key>
 LD_API_TOKEN=<your API token>
 LD_PROJECT=<your LD project key>
 LD_ENVIRONMENT=<your LD environment key>
-LD_FLAG_KEY=<your LD flag key>
+LD_FLAG_KEY=<the LD flag key of the flag to be toggled during testing>
 LD_CONTEXT=<your LD context object, must be valid JSON string>
 ```
 

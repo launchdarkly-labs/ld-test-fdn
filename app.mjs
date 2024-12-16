@@ -12,7 +12,7 @@ import ora from 'ora';
 (async () => {
     dotenv.config();
 
-    const about = 'This app measures the time to receive notification in client after a flag toggle.\n' +
+    const about = 'This app measures the time to receive notification in client apps after a flag is toggled in LaunchDarkly SaaS.\n' +
         'Use --help to see available parameters. If no args are provided, the app will attempt to use values in .env file.\n' +
         'When ready, press "t" to run the test.\n'
 
@@ -34,16 +34,21 @@ import ora from 'ora';
     const environmentKey = options.environmentKey || process.env.LD_ENVIRONMENT;
     const flagKey = options.flagKey || process.env.LD_FLAG_KEY;
     const context = options.context ? JSON.parse(options.context) : JSON.parse(process.env.LD_CONTEXT);
-    const og = console.log;
     const ldOptions = {
         logger: ld.basicLogger({
             level: options.logLevel,
             destination: logInfo
-        })
+        }),
+        offline: false
     };
+
+    const og = console.log;
+    console.log = logInfo;
+    console.error = logError;
+
     new PerformanceObserver((list, observer) => {
         list.getEntries().forEach((entry) => {
-            logInfo(`${entry.name} took ${entry.duration} ms`);
+            logInfo(`${entry.name} took ${value(entry.duration + ' ms')}`);
         });
         performance.clearMarks();
         performance.clearMeasures();
@@ -51,6 +56,7 @@ import ora from 'ora';
 
     const info = ansi256(50).bold;
     const error = ansi256(198).bold;
+    const value = ansi256(255).bold;
     const spinner = ora();
     spinner.color = 'green';
 
@@ -91,6 +97,8 @@ import ora from 'ora';
         if (key.ctrl && key.name == 'c') { // kill the app
             spinner.stop();
             logInfo('Exiting app...');
+            client.flush();
+            client.close();
             process.exit();
         } else if (key.name == 't') {
             if (!testIsRunning) {
@@ -104,17 +112,18 @@ import ora from 'ora';
         try {
             testIsRunning = true;
             if (testCount == 0) {
+                // setup event listener for flag update
                 client.on(`update:${flagKey}`, async () => {
                     const toggleReceivedDateTime = new Date(new Date().toUTCString());
+                    const flagLastModifiedInLDDateTime = new Date(flagLastModifiedInLD);
                     const waitTime = 3000;
-                    logInfo(`Flag update received by client at ${toggleReceivedDateTime.toISOString()}`);
+                    logInfo(`\tFlag modified in LaunchDarky at ${flagLastModifiedInLDDateTime.toISOString()}`);
+                    logInfo(`\tFlag update received by client at ${toggleReceivedDateTime.toISOString()}`);
                     setTimeout(() => {
-                        const flagLastModifiedInLDDateTime = new Date(flagLastModifiedInLD);
-                        logInfo(`Flag last updated in LD at ${flagLastModifiedInLDDateTime.toISOString()}`);
                         const diff = Math.abs(toggleReceivedDateTime.getTime() - flagLastModifiedInLDDateTime.getTime());
-                        logInfo(`Time to deliver flag change to client: ${diff} ms`);
+                        logInfo(`Time to deliver flag change to client: ${value(diff + ' ms')}`);
                         runningAverage += diff;
-                        logInfo(`Average flag delivery time during tests: ${runningAverage / testCount} ms`);
+                        logInfo(`Average flag delivery time during tests: ${value((runningAverage / testCount) + ' ms')}`);
                         testIsRunning = false;
                         showReadyMessage();
                     }, waitTime);
@@ -125,7 +134,8 @@ import ora from 'ora';
                     throw err;
                 });
             }
-            ++testCount
+            ++testCount;
+            logInfo('-----------------------');
             logInfo(`Executing test run #${testCount}`);
 
             // toggle the flag in LD
@@ -137,9 +147,9 @@ import ora from 'ora';
     }
 
     async function toggleFlag(currentFlagValue) {
-        logInfo('Toggling flag in LD...');
+        const kind = currentFlagValue ? 'turnFlagOff' : 'turnFlagOn';
+        logInfo(`Toggling ${value(flagKey)} flag in LaunchDarkly (${value(kind)})...`);
         try {
-            const kind = currentFlagValue ? 'turnFlagOff' : 'turnFlagOn';
             const ignoreConflicts = true; // force it
             performance.mark('toggleFlag-start');
             const response = await fetch(`https://app.launchdarkly.com/api/v2/flags/${projectKey}/${flagKey}?ignoreConflicts=${ignoreConflicts}&filterEnv=${environmentKey}`,
@@ -159,15 +169,15 @@ import ora from 'ora';
                 throw new Error(msg);
             }
             const json = await response.json();
-            const state = json.environments[`${environmentKey}`];
-            flagValue = state.on;
-            flagLastModifiedInLD = state.lastModified;
+            const flagState = json.environments[`${environmentKey}`];
+            flagValue = flagState.on;
+            flagLastModifiedInLD = flagState.lastModified;
         } catch (e) {
             logError(`Error toggling flag: ${e}`);
             throw e;
         } finally {
             performance.mark('toggleFlag-end');
-            performance.measure('Toggling flag in LD', 'toggleFlag-start', 'toggleFlag-end');
+            performance.measure(`Toggling flag in LD`, 'toggleFlag-start', 'toggleFlag-end');
         }
     }
 
@@ -203,9 +213,6 @@ import ora from 'ora';
         const stamp = new Date().toLocaleTimeString('en-US', options).replace(" ", "").replace(",", " ");
         og(`${stamp} ${error("ERRO")} ${message}`, ...args);
     }
-
-    console.log = logInfo;
-    console.error = logError;
 
     await init();
 })();
